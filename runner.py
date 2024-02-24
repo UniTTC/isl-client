@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import sched
 import pytz
 import yaml
 import subprocess
@@ -187,18 +188,20 @@ def get_speedtest_command():
         return f'{config["speedtest"]["commandString"]}'
 
 
-# Получение задержки
-def get_delay(interval):
-    return int(interval * (0.75 + 0.5 * (0.5 - 1) * 2))
 
-
-def countdown_timer(seconds):
+            
+def countdown_timer(interval):
     # Установка обработчика сигнала Ctrl+C
     signal.signal(signal.SIGINT, signal_handler)
-    for remaining_time in range(seconds, 0, -1):
+
+    scheduler = sched.scheduler(time.time, time.sleep)
+    next_call = time.time()
+
+    while True:
+        scheduler.enterabs(next_call, 1, execute_speedtest, ())
+        next_call += interval
         time.sleep(1)
-        if is_daemon and remaining_time == 1:
-            execute_speedtest()
+
 
 
 def start_speedtest_process(cmd):
@@ -265,8 +268,7 @@ def execute_speedtest():
                 future = executor.submit(
                     wait_for_completion, process, handle_speedtest_output, None
                 )
-                delay = get_delay(interval_ms)
-                countdown_timer(int(delay / 1000))
+                countdown_timer(int(interval_ms))
 
     except Exception as error:
         logging.error("Error executing Speedtest or parsing output: %s", error)
