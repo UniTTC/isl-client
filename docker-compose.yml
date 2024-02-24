@@ -4,6 +4,8 @@ services:
   client:
     build:
       context: .
+    hostname: isl.osk.kumistau.ttc.kz
+    container_name: isl.osk.kumistau
     environment:
       - TZ=Asia/Almaty
       - CLIENT_STATION=Kumsistau

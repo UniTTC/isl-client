@@ -1,5 +1,5 @@
 # Use a specific Ubuntu version
-FROM ubuntu:20.04
+FROM python:latest
 
 ENV TZ=Asia/Almaty \
     DEBIAN_FRONTEND=noninteractive \
@@ -19,8 +19,6 @@ RUN apt-get update && \
     apt-get install -y \
     apt-utils \
     curl \
-    python3 \
-    python3-pip \
     supervisor \
     ntp && \
     pip3 install pytz PyYAML requests schedule GitPython
