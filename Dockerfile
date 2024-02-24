@@ -22,24 +22,25 @@ RUN apt-get update && \
 RUN apt-get update && \
     apt-get install -y \
     curl \
-    # supervisor \
     ntp && \
-    pip3 install pytz PyYAML requests schedule GitPython
+    git && \
+    python3 -m venv /opt/venv
+
+# Activate the virtual environment
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Install required packages within the virtual environment
+RUN  pip3 install pytz PyYAML requests schedule GitPython
 
 # Create a symbolic link for the timezone
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN  curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash && \   
-    apt-get install -y speedtest 
-
-# Install Git and clone the project
-RUN apt-get update && \
-    apt-get install -y git && \
+    apt-get install -y speedtest && \
     git clone https://github.com/UniTTC/isl-client.git /opt/isl_client && \
-    apt-get remove -y git && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
-    
+
 # Copy Supervisor configuration
 # RUN cp /opt/isl_client/dist/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
