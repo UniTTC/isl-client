@@ -40,7 +40,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
     
 # Copy Supervisor configuration
-RUN cp /opt/isl_client/dist/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# RUN cp /opt/isl_client/dist/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Set the working directory
 WORKDIR /opt/isl_client
@@ -58,4 +58,4 @@ RUN sed -i "s/tp: 1200/intervalSec: ${SPEEDTEST_INTERVAL}/" /opt/isl_client/conf
     sed -i "s/tp: 70/tp: ${CONNECTION_TP}/" /opt/isl_client/config.yaml 
 
 # Set the entrypoint
-ENTRYPOINT ["/usr/bin/supervisord"]
+ENTRYPOINT ["/usr/bin/supervisord", "-c", "/opt/isl_client/dist/supervisord.conf"]
