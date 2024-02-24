@@ -1,5 +1,6 @@
 # Используем официальный образ Ubuntu
 FROM ubuntu:latest
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Устанавливаем зависимости для SPEEDTEST® клиента и Python
 RUN apt-get update && \
