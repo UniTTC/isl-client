@@ -29,7 +29,7 @@ RUN apt-get update && \
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 
 RUN  curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash && \   
-apt-get install -y speedtest 
+    apt-get install -y speedtest 
 
 
 # Clone the project
