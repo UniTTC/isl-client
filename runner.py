@@ -8,7 +8,7 @@ import requests
 import json
 import os
 import sys
-
+import schedule
 import platform
 import time
 import logging
@@ -23,19 +23,30 @@ import concurrent.futures
 
 # Определение путей
 script_directory = Path(__file__).resolve().parent
-log_file_path = script_directory / "logs"
+log_directory = script_directory / "logs"
 log_file_name = "isl.log"
-log_directory = log_file_path.parent
-log_directory.mkdir(parents=True, exist_ok=True)
+
 
 config_yaml_file_path = script_directory / "config.yaml"
 config_json_file_path = script_directory / "config" / "default.json"
 exe_file_path = script_directory / "bin"
 
-
 #
 repo_url = "https://github.com/UniTTC/isl-client"
 
+def check_and_update():
+    current_version = get_current_version()
+    if check_for_updates(current_version):
+        logging.info("Updating from repository...")
+        update_from_repo(repo_url)
+        new_version = get_current_version()
+        logging.info("Update complete. New version: %s", new_version)
+        if is_daemon:
+            execute_speedtest()
+            
+# Добавьте эту функцию для запуска проверки обновлений каждый день в 00:00
+def schedule_update_check():
+    schedule.every().day.at("00:00").do(check_and_update)
 
 def get_current_version():
     try:
@@ -89,7 +100,8 @@ def update_from_repo(repo_url, local_path="."):
             repo = git.Repo.clone_from(repo_url, local_path)
             logging.info("Repository cloned successfully.")
     except git.GitCommandError as e:
-            logging.error(f"Git error: {e}")
+        logging.error(f"Git error: {e}")
+
 
 def load_configuration(config_yaml_file_path, config_json_file_path):
     if config_yaml_file_path.is_file() and config_json_file_path.is_file():
@@ -116,6 +128,9 @@ config = load_configuration(config_yaml_file_path, config_json_file_path)
 
 
 def setup_logging():
+    # Проверка существования папки "logs"
+    if not log_directory.exists():
+        log_directory.mkdir(parents=True, exist_ok=True)
     # Настройка логгера
     logger = logging.getLogger()
     logger.setLevel(logging.INFO)
@@ -131,12 +146,12 @@ def setup_logging():
 
     # Создание обработчика для записи в файл с ротацией
     file_handler = RotatingFileHandler(
-        log_file_path / log_file_name, maxBytes=5 * 1024 * 1024, backupCount=5
+        log_directory / log_file_name, maxBytes=5 * 1024 * 1024, backupCount=5
     )
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-    
-    
+
+
 minimum_interval_s = 900
 interval_s = max(config["speedtest"]["intervalSec"], minimum_interval_s)
 interval_ms = interval_s * 1000
@@ -152,9 +167,6 @@ def parse_arguments():
 
     return parser.parse_args()
 
-
-# Определение, является ли процесс демоном
-is_daemon = len(os.sys.argv) > 2 and os.sys.argv[2] == "daemon"
 
 # Определение временной зоны
 local_tz = pytz.timezone("Asia/Almaty")
@@ -198,7 +210,7 @@ def insert_data(result):
         config["global"]["connection"]["ip"],
         config["global"]["connection"]["tp"],
     )
-    runner = get_system_info()
+    runner = f"{platform.node()} {platform.system()} {platform.version()} {platform.release()}"
 
     byte_to_mbit = 0.000008
 
@@ -238,7 +250,7 @@ def insert_data(result):
         logging.info("Sending GraphQL request...")
         response = requests.post(endpoint, json={"query": mutation})
         response_data = response.json()["data"]["addSpeedTest"]
-        logging.info("Speedtest result added. Status: %s", response_data)
+        logging.info("Speedtest result added.  %s", response_data)
         if not is_daemon:
             sys.exit()
     except requests.RequestException as request_error:
@@ -285,23 +297,33 @@ def start_speedtest_process(cmd):
         bufsize=1,  # line-buffered
         text=True,  # interpret output as text
     )
-    
+
+
 def handle_speedtest_output(stdout, progress_bar):
     for line in stdout:
         try:
             data = json.loads(line.strip())
-            if data.get("type") == "result":
-                insert_data(data)
-                progress_bar.set_description(f"Done")
+            if not is_daemon:
+                if data.get("type") == "result":
+                    insert_data(data)
+                    print(f"\rSpeedtest cmd done.   ", end="", flush=True)
+                    logging.info(f"Speedtest cmd done.")
+                else:
+                    for key in ["ping", "download", "upload"]:
+                        if data.get("type") == key:
+                            progress_percentage = round(data[key]["progress"] * 100, 2)
+                            print(
+                                f"\r{key.capitalize()}: {progress_percentage:5.1f}%   ",
+                                end="",
+                                flush=True,
+                            )
             else:
-                for key in ["ping", "download", "upload"]:
-                    if data.get("type") == key:
-                        progress_percentage = round(data[key]["progress"] * 100, 2)
-                        print(f"\r{key.capitalize()}: {progress_percentage:5.1f}%   ", end='', flush=True)
+                if data.get("type") == "result":
+                    insert_data(data)
+                    print(f"\rSpeedtest cmd done.   ", end="", flush=True)
+                    logging.info(f"Speedtest cmd done.")
         except json.JSONDecodeError:
             pass
-
-
 
 
 def wait_for_completion(process, handle_output_func, progress_bar):
@@ -311,40 +333,46 @@ def wait_for_completion(process, handle_output_func, progress_bar):
             break
         handle_output_func([line], progress_bar)
 
+
 def execute_speedtest():
     try:
         cmd = get_speedtest_command()
         setup_logging()
+        check_and_update()
         logging.info("Speedtest script started.")
         with concurrent.futures.ThreadPoolExecutor() as executor:
             if not is_daemon:
                 process = start_speedtest_process(cmd)
                 future = executor.submit(
-                    wait_for_completion,
-                    process, handle_speedtest_output, None
+                    wait_for_completion, process, handle_speedtest_output, None
                 )
-                current_version = get_current_version()
                 concurrent.futures.wait([future])
             else:
                 process = start_speedtest_process(cmd)
                 future = executor.submit(
-                    wait_for_completion,
-                    process, handle_speedtest_output, None
+                    wait_for_completion, process, handle_speedtest_output, None
                 )
-                current_version = get_current_version()
                 delay = get_delay(interval_ms)
                 countdown_timer(int(delay / 1000))
+                schedule_update_check()
+
 
     except Exception as error:
         logging.error("Error executing Speedtest or parsing output: %s", error)
+
 
 def signal_handler(sig, frame):
     logging.info("Received Ctrl+C. Exiting gracefully...")
     sys.exit()
 
 
+
 # Установка обработчика сигнала Ctrl+C
 signal.signal(signal.SIGINT, signal_handler)
+
+is_daemon = len(os.sys.argv) > 2 and os.sys.argv[2] == "daemon"
+
+# Основной блок
 
 if __name__ == "__main__":
     args = parse_arguments()
