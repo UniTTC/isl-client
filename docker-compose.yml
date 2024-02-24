@@ -24,7 +24,6 @@ services:
       - isl
     cap_add:
       - NET_ADMIN
-      - NET_BIND
     cap_drop:
       - all
 
