@@ -22,7 +22,11 @@ services:
       - ./docer_log:/opt/isl_client/logs
     networks:
       - isl
-
+    cap_add:
+      - NET_ADMIN
+      - NET_BIND
+    cap_drop:
+      - all
 
 networks:
   isl:
