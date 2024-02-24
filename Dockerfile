@@ -31,10 +31,14 @@ RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 RUN  curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash && \   
     apt-get install -y speedtest 
 
-
-# Clone the project
-RUN git clone https://github.com/UniTTC/isl-client.git /opt/isl_client
-
+# Install Git and clone the project
+RUN apt-get update && \
+    apt-get install -y git && \
+    git clone https://github.com/UniTTC/isl-client.git /opt/isl_client && \
+    apt-get remove -y git && \
+    apt-get autoremove -y && \
+    rm -rf /var/lib/apt/lists/*
+    
 # Copy Supervisor configuration
 COPY /opt/isl_client/dist/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
