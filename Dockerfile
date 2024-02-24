@@ -40,7 +40,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
     
 # Copy Supervisor configuration
-COPY /opt/isl_client/dist/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+RUN cp /opt/isl_client/dist/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Create volumes for logs and config
 VOLUME ["/opt/isl_client/logs", "/opt/isl_client/config"]
