@@ -19,3 +19,13 @@ services:
       - CONNECTION_TP=70
     volumes:
       - ./docer_log:/opt/isl_client/logs
+    networks:
+      - default
+
+
+networks:
+  default:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.200.0/24
