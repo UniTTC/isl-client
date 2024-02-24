@@ -1,6 +1,7 @@
 # Use a specific Ubuntu version
 FROM python:latest
 
+# Set environment variables
 ENV TZ=Asia/Almaty \
     DEBIAN_FRONTEND=noninteractive \
     SPEEDTEST_INTERVAL=1200 \
@@ -15,37 +16,21 @@ ENV TZ=Asia/Almaty \
     CONNECTION_TP=70
 
 # Install dependencies
-RUN apt-get update && \
-    apt-get install -y \
-    apt-utils 
-
-RUN apt-get update && \
-    apt-get install -y \
+RUN apt-get update && apt-get install -y \
+    apt-utils \
+    git \
     curl \
     ntp && \
-    git && \
-    python3 -m venv /opt/venv
+    git clone https://github.com/UniTTC/isl-client.git /opt/isl_client && \
+    python3 -m venv /opt/venv && \
+    /opt/venv/bin/pip install pytz PyYAML requests schedule GitPython && \
+    curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash
 
 # Activate the virtual environment
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Install required packages within the virtual environment
-RUN  pip3 install pytz PyYAML requests schedule GitPython
+ENV PATH="/opt/venv/bin:$PATH" 
 
 # Create a symbolic link for the timezone
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-
-RUN  curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash && \   
-    apt-get install -y speedtest && \
-    git clone https://github.com/UniTTC/isl-client.git /opt/isl_client && \
-    apt-get autoremove -y && \
-    rm -rf /var/lib/apt/lists/*
-
-# Copy Supervisor configuration
-# RUN cp /opt/isl_client/dist/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
-
-# Set the working directory
-WORKDIR /opt/isl_client
 
 # Replace values in config.yaml
 RUN sed -i "s/tp: 1200/intervalSec: ${SPEEDTEST_INTERVAL}/" /opt/isl_client/config.yaml && \
@@ -59,8 +44,8 @@ RUN sed -i "s/tp: 1200/intervalSec: ${SPEEDTEST_INTERVAL}/" /opt/isl_client/conf
     sed -i "s/ip: Nan/ip: ${CONNECTION_IP}/" /opt/isl_client/config.yaml && \
     sed -i "s/tp: 70/tp: ${CONNECTION_TP}/" /opt/isl_client/config.yaml 
 
-# Set the entrypoint
-# ENTRYPOINT ["/usr/bin/supervisord", "-c", "/opt/isl_client/dist/supervisord.conf"]
+# Set the working directory
+WORKDIR /opt/isl_client
 
-# Запускаем скрипт при каждом запуске контейнера
+# Run the script when the container starts
 CMD ["python3", "runner.py", "--daemon"]
