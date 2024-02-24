@@ -24,7 +24,8 @@ RUN apt-get update && apt-get install -y \
     git clone https://github.com/UniTTC/isl-client.git /opt/isl_client && \
     python3 -m venv /opt/venv && \
     /opt/venv/bin/pip install pytz PyYAML requests schedule GitPython && \
-    curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash
+    curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash  &&\
+    apt-get install -y speedtest
 
 # Activate the virtual environment
 ENV PATH="/opt/venv/bin:$PATH" 
