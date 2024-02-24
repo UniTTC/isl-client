@@ -6,6 +6,7 @@ services:
       context: .
     hostname: isl.osk.kumistau.ttc.kz
     container_name: isl.osk.kumistau
+    restart: unless-stopped
     environment:
       - TZ=Asia/Almaty
       - CLIENT_STATION=Kumsistau
