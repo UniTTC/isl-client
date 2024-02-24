@@ -1,0 +1,15 @@
+[Unit]
+Description=ISL
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /opt/isl_client/runner.py --daemon
+Restart=always
+User=nobody
+Group=nogroup
+
+ExecStop=/bin/kill -s QUIT $MAINPID
+ExecReload=/bin/kill -s HUP $MAINPID
+
+[Install]
+WantedBy=default.target

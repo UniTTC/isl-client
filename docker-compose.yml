@@ -1,0 +1,19 @@
+version: '1'
+
+services:
+  isl-client:
+    build:
+      context: .
+    environment:
+      - TZ=Asia/Almaty
+      - CLIENT_STATION=Kumsistau
+      - CLIENT_BRANCH=OSK
+      - CLIENT_LATITUDE=49.680414
+      - CLIENT_LONGITUDE=83.314745
+      - CONNECTION_TYPE=FTTB
+      - CONNECTION_LOGIN=test@test
+      - CONNECTION_VLAN=2919
+      - CONNECTION_IP=Nan
+      - CONNECTION_TP=70
+    volumes:
+      - ./isl-client:/opt/isl_client

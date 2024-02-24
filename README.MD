@@ -144,10 +144,50 @@ client:
 
 
 ## Запуск скрипта при каждом перезапуске системы
+> **Внимание:**  
+> 
+> Обязательно нужно сделать файл `runner.py`  исполняемым 
+> ```bash 
+> chmod u+x /opt/isl_client/runner.py ```**
+
 
 Если вы хотите запустить Python-скрипт `runner.py` при каждом перезапуске системы, добавьте следующую строку в ваш файл crontab:
 
 ```bash
-#crontab -e
-@reboot /usr/bin/python3 /opt/isl_client/runner.py >> /opt/isl_client/logs/worker.log 2>&1
+#crontab -e 
+@reboot /usr/bin/python3 /opt/isl_client/runner.py --daemon >> /opt/isl_client/logs/worker.log 2>&1
 ```
+или
+
+**Для CentOS,Debian,Ubuntu (systemd)**
+1. Скопируйте файл службы `isl-client.service`  из `/opt/isl_client/services` в `/etc/systemd/system/`:
+```bash
+cp /opt/isl_client/services/isl-client.service /etc/systemd/system/isl-client.service
+```
+1. Перезагрузите конфигурацию systemd и запустите службу:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl start isl
+sudo systemctl enable isl  # Добавляет службу в автозагрузку
+```
+
+**Для FreeBSD (rc.d)**
+1. Скопируйте файл службы `isl-client` из `/opt/isl_client/services/` в `/usr/local/etc/rc.d/`:
+```bash
+cp /opt/isl_client/services/isl-client /usr/local/etc/rc.d/isl-client
+```
+2. Сделайте файл `isl-client` исполняемым:
+
+```bash
+chmod +x /usr/local/etc/rc.d/isl
+```
+3. Запустите службу:
+```bash
+service isl start
+```
+4. Добавьте службу в автозагрузку:
+```bash
+sysrc isl_enable=YES
+```
+

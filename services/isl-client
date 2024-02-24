@@ -1,0 +1,18 @@
+#!/bin/sh
+
+# PROVIDE: isl
+# REQUIRE: networking
+# KEYWORD: shutdown
+
+. /etc/rc.subr
+
+name="isl"
+rcvar="isl_enable"
+isl_enable="YES"
+
+pidfile="/var/run/${name}.pid"
+command="/usr/sbin/daemon"
+command_args="-u nobody -r -o /var/log/${name}.log -p ${pidfile} /usr/bin/python3 /opt/isl_client/runner.py --daemon"
+
+load_rc_config $name
+run_rc_command "$1"
