@@ -19,7 +19,6 @@ RUN apt-get update && \
     apt-get install -y \
     apt-utils \
     curl \
-    speedtest \
     python3 \
     python3-pip \
     supervisor \
@@ -28,6 +27,10 @@ RUN apt-get update && \
 
 # Create a symbolic link for the timezone
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+RUN  curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | bash && \   
+apt-get install -y speedtest 
+
 
 # Clone the project
 RUN git clone https://github.com/UniTTC/isl-client.git /opt/isl_client
