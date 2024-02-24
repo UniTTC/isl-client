@@ -47,6 +47,8 @@ RUN sed -i "s/tp: 1200/intervalSec: ${SPEEDTEST_INTERVAL}/" /opt/isl_client/conf
 
 # Set the working directory
 WORKDIR /opt/isl_client
-
+RUN  cd /opt/isl_client && \
+    git pull
+    
 # Run the script when the container starts
 CMD ["python3", "runner.py", "--daemon"]
