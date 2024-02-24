@@ -21,11 +21,11 @@ services:
     volumes:
       - ./docer_log:/opt/isl_client/logs
     networks:
-      - default
+      - isl
 
 
 networks:
-  default:
+  isl:
     ipam:
       driver: default
       config:
