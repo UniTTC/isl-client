@@ -42,9 +42,6 @@ RUN apt-get update && \
 # Copy Supervisor configuration
 RUN cp /opt/isl_client/dist/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-# Create volumes for logs and config
-VOLUME ["/opt/isl_client/logs", "/opt/isl_client/config"]
-
 # Set the working directory
 WORKDIR /opt/isl_client
 
