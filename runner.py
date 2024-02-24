@@ -8,7 +8,6 @@ import requests
 import json
 import os
 import sys
-import schedule
 import platform
 import time
 import logging
@@ -16,7 +15,6 @@ from datetime import datetime
 from pathlib import Path
 import argparse
 import signal
-import git
 from logging.handlers import RotatingFileHandler
 import concurrent.futures
 
@@ -30,81 +28,6 @@ log_file_name = "isl.log"
 config_yaml_file_path = script_directory / "config.yaml"
 config_json_file_path = script_directory / "config" / "default.json"
 exe_file_path = script_directory / "bin"
-
-#
-repo_url = "https://github.com/UniTTC/isl-client"
-
-
-def check_and_update():
-    current_version = get_current_version()
-    if check_for_updates(current_version):
-        logging.info("Updating from repository...")
-        update_from_repo(repo_url)
-        new_version = get_current_version()
-        logging.info("Update complete. New version: %s", new_version)
-        if is_daemon:
-            execute_speedtest()
-
-
-# Добавьте эту функцию для запуска проверки обновлений каждый день в 00:00
-def schedule_update_check():
-    schedule.every().day.at("00:00").do(check_and_update)
-
-
-def get_current_version():
-    try:
-        with open("VERSION", "r") as version_file:
-            current_version = version_file.read().strip()
-            return current_version
-    except FileNotFoundError:
-        logging.error(
-            "The VERSION file was not found. Please provide the correct path or create a file."
-        )
-        return None
-
-
-def update_current_version(new_version):
-    with open("VERSION", "w") as version_file:
-        version_file.write(new_version)
-
-
-def check_for_updates(current_version):
-    latest_version_url = f"{repo_url}/releases/latest"
-
-    try:
-        response = requests.get(latest_version_url)
-        response.raise_for_status()
-        latest_version_tag = response.url.split("/")[-1]
-
-        if latest_version_tag != current_version:
-            logging.info(f"New version available: {latest_version_tag}")
-            return True
-        else:
-            logging.info("You have the latest version installed.")
-            return False
-    except requests.exceptions.RequestException as e:
-        logging.error(f"Error while checking for updates: {e}")
-        return False
-
-
-def update_from_repo(repo_url, local_path="."):
-    try:
-        # Проверяем, существует ли локальный репозиторий
-        if os.path.exists(os.path.join(local_path, ".git")):
-            logging.info("Checking for updates...")
-            # Локальный репозиторий существует, обновляем его
-            repo = git.Repo(local_path)
-            origin = repo.remotes.origin
-            origin.fetch()
-            origin.pull()
-            logging.info("Update from repository completed successfully.")
-        else:
-            logging.info("Cloning repository...")
-            repo = git.Repo.clone_from(repo_url, local_path)
-            logging.info("Repository cloned successfully.")
-    except git.GitCommandError as e:
-        logging.error(f"Git error: {e}")
-
 
 def load_configuration(config_yaml_file_path, config_json_file_path):
     if config_yaml_file_path.is_file() and config_json_file_path.is_file():
@@ -167,9 +90,6 @@ def parse_arguments():
     parser.add_argument(
         "-d", "--daemon", action="store_true", help="Run the script as a daemon."
     )
-    parser.add_argument(
-        "-u", "--update", action="store_true", help="Run the script as a update."
-    )
 
     return parser.parse_args()
 
@@ -192,16 +112,6 @@ def convert_utc_to_local(timestamp_utc):
     timestamp_datetime = datetime.strptime(timestamp_utc, "%Y-%m-%dT%H:%M:%S%z")
     timestamp_local = timestamp_datetime.astimezone(local_tz)
     return timestamp_local.strftime("%Y-%m-%dT%H:%M:%S%z")
-
-
-# Получение информации о системе
-def get_system_info():
-    hostname = platform.node()
-    os_version = platform.version()
-    os_release = platform.release()
-    os_type = platform.system()
-    return f"{hostname} {os_type} {os_version} {os_release}"
-
 
 # Вставка данных в GraphQL с логированием
 def insert_data(result):
@@ -342,8 +252,6 @@ def execute_speedtest():
     try:
         cmd = get_speedtest_command()
         setup_logging()
-        if is_update:
-            check_and_update()
         logging.info("Speedtest script started.")
         with concurrent.futures.ThreadPoolExecutor() as executor:
             if not is_daemon:
@@ -359,7 +267,6 @@ def execute_speedtest():
                 )
                 delay = get_delay(interval_ms)
                 countdown_timer(int(delay / 1000))
-                schedule_update_check()
 
     except Exception as error:
         logging.error("Error executing Speedtest or parsing output: %s", error)
@@ -374,7 +281,6 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 is_daemon = len(os.sys.argv) > 2 and os.sys.argv[2] == "daemon"
-is_update = len(os.sys.argv) > 2 and os.sys.argv[2] == "update"
 
 
 # Основной блок
@@ -382,6 +288,5 @@ is_update = len(os.sys.argv) > 2 and os.sys.argv[2] == "update"
 if __name__ == "__main__":
     args = parse_arguments()
     is_daemon = args.daemon
-    is_update = args.update
 
     execute_speedtest()
