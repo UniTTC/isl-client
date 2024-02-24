@@ -129,6 +129,7 @@ config = load_configuration(config_yaml_file_path, config_json_file_path)
 
 # Настройка логирования
 
+
 def setup_logging():
     # Проверка существования папки "logs"
     if not log_directory.exists():
@@ -165,6 +166,9 @@ def parse_arguments():
     )
     parser.add_argument(
         "-d", "--daemon", action="store_true", help="Run the script as a daemon."
+    )
+    parser.add_argument(
+        "-u", "--update", action="store_true", help="Run the script as a update."
     )
 
     return parser.parse_args()
@@ -338,7 +342,8 @@ def execute_speedtest():
     try:
         cmd = get_speedtest_command()
         setup_logging()
-        check_and_update()
+        if is_update:
+            check_and_update()
         logging.info("Speedtest script started.")
         with concurrent.futures.ThreadPoolExecutor() as executor:
             if not is_daemon:
@@ -359,6 +364,7 @@ def execute_speedtest():
     except Exception as error:
         logging.error("Error executing Speedtest or parsing output: %s", error)
 
+
 # Установка обработчика сигнала Ctrl+C
 def signal_handler(sig, frame):
     logging.info("Received Ctrl+C. Exiting gracefully...")
@@ -368,11 +374,14 @@ def signal_handler(sig, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 is_daemon = len(os.sys.argv) > 2 and os.sys.argv[2] == "daemon"
+is_update = len(os.sys.argv) > 2 and os.sys.argv[2] == "update"
+
 
 # Основной блок
 
 if __name__ == "__main__":
     args = parse_arguments()
     is_daemon = args.daemon
+    is_update = args.update
 
     execute_speedtest()
