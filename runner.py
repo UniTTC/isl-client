@@ -1,33 +1,37 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import pytz
 import yaml
 import subprocess
 import requests
 import json
 import os
+import sys
+
 import platform
 import time
 import logging
 from datetime import datetime
-import threading
 from pathlib import Path
-from tqdm import tqdm
 import argparse
 import signal
-import warnings
 import git
 from logging.handlers import RotatingFileHandler
+import concurrent.futures
 
 
 # Определение путей
 script_directory = Path(__file__).resolve().parent
 log_file_path = script_directory / "logs"
 log_file_name = "isl.log"
+log_directory = log_file_path.parent
+log_directory.mkdir(parents=True, exist_ok=True)
+
 config_yaml_file_path = script_directory / "config.yaml"
 config_json_file_path = script_directory / "config" / "default.json"
 exe_file_path = script_directory / "bin"
-log_directory = log_file_path.parent
-log_directory.mkdir(parents=True, exist_ok=True)
+
 
 #
 repo_url = "https://github.com/UniTTC/isl-client"
@@ -59,15 +63,12 @@ def check_for_updates(current_version):
         latest_version_tag = response.url.split("/")[-1]
 
         if latest_version_tag != current_version:
-            print(f"New version available: {latest_version_tag}")
             logging.info(f"New version available: {latest_version_tag}")
             return True
         else:
-            print("You have the latest version installed.")
             logging.info("You have the latest version installed.")
             return False
     except requests.exceptions.RequestException as e:
-        print(f"Error while checking for updates: {e}")
         logging.error(f"Error while checking for updates: {e}")
         return False
 
@@ -76,19 +77,19 @@ def update_from_repo(repo_url, local_path="."):
     try:
         # Проверяем, существует ли локальный репозиторий
         if os.path.exists(os.path.join(local_path, ".git")):
+            logging.info("Checking for updates...")
             # Локальный репозиторий существует, обновляем его
             repo = git.Repo(local_path)
             origin = repo.remotes.origin
             origin.fetch()
             origin.pull()
-            print("Update from repository completed successfully.")
+            logging.info("Update from repository completed successfully.")
         else:
-            # Локального репозитория нет, клонируем его
+            logging.info("Cloning repository...")
             repo = git.Repo.clone_from(repo_url, local_path)
-            print("Repository cloned successfully.")
+            logging.info("Repository cloned successfully.")
     except git.GitCommandError as e:
-        print(f"Git error: {e}")
-
+            logging.error(f"Git error: {e}")
 
 def load_configuration(config_yaml_file_path, config_json_file_path):
     if config_yaml_file_path.is_file() and config_json_file_path.is_file():
@@ -122,10 +123,11 @@ def setup_logging():
     # Создание форматтера
     formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
 
-    # Создание консольного обработчика
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
+    # Создание консольного обработчика (если не является демоном)
+    if not is_daemon:
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        logger.addHandler(console_handler)
 
     # Создание обработчика для записи в файл с ротацией
     file_handler = RotatingFileHandler(
@@ -133,14 +135,8 @@ def setup_logging():
     )
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-
-
-logging.basicConfig(
-    filename=log_file_path,
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-)
-
+    
+    
 minimum_interval_s = 900
 interval_s = max(config["speedtest"]["intervalSec"], minimum_interval_s)
 interval_ms = interval_s * 1000
@@ -242,9 +238,9 @@ def insert_data(result):
         logging.info("Sending GraphQL request...")
         response = requests.post(endpoint, json={"query": mutation})
         response_data = response.json()["data"]["addSpeedTest"]
-        logging.info("Speedtest result added: %s", response_data)
+        logging.info("Speedtest result added. Status: %s", response_data)
         if not is_daemon:
-            exit()
+            sys.exit()
     except requests.RequestException as request_error:
         logging.error("Failed to send GraphQL request: %s", request_error)
     except json.JSONDecodeError as json_error:
@@ -270,97 +266,81 @@ def get_delay(interval):
     return int(interval * (0.75 + 0.5 * (0.5 - 1) * 2))
 
 
-# Таймер обратного отсчета с использованием tqdm для индикации
 def countdown_timer(seconds):
     # Установка обработчика сигнала Ctrl+C
     signal.signal(signal.SIGINT, signal_handler)
-    for remaining_time in tqdm(range(seconds, 0, -1), desc="Next run", unit="s"):
+    for remaining_time in range(seconds, 0, -1):
         time.sleep(1)
         if is_daemon and remaining_time == 1:
             execute_speedtest()
 
 
-# Ваша функция execute_speedtest
-def execute_speedtest():
-    try:
-        cmd = get_speedtest_command()
-
-        # Добавление прогресс-бара tqdm
-        with tqdm(total=100, unit="", dynamic_ncols=True) as progress_bar:
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                universal_newlines=True,
-                shell=True,
-                bufsize=1,  # line-buffered
-                text=True,  # interpret output as text
-            )
-
-            # Запуск отдельного потока для обработки вывода
-            threading.Thread(
-                target=handle_speedtest_output, args=(process.stdout, progress_bar)
-            ).start()
-
-            # Ожидание завершения процесса и динамическое обновление прогресс-бара
-            while process.poll() is None:
-                line = process.stdout.readline()
-                if not line:
-                    break
-                handle_speedtest_output([line], progress_bar)
-
-            # Получаем текущую версию из файла
-            current_version = get_current_version()
-            print(f"{current_version}\n")
-
-            # Проверка на is_daemon
-            if is_daemon:
-                delay = get_delay(interval_ms)
-                countdown_timer(int(delay / 1000))
-
-    except Exception as error:
-        logging.exception("Error executing Speedtest or parsing output: %s", error)
-
-
-# Дополнительная функция для обработки вывода Speedtest
+def start_speedtest_process(cmd):
+    return subprocess.Popen(
+        cmd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        universal_newlines=True,
+        shell=True,
+        bufsize=1,  # line-buffered
+        text=True,  # interpret output as text
+    )
+    
 def handle_speedtest_output(stdout, progress_bar):
     for line in stdout:
         try:
             data = json.loads(line.strip())
-            if data.get("type") == "ping" in data:
-                # Ваш код обработки данных о прогрессе здесь
-                # Пример: обновление прогресса tqdm
-                progress_bar.update(data["ping"]["progress"] * 100)
-                # Обновление описания прогресс-бара
-                progress_bar.set_description(
-                    f"Ping: {data['ping']['progress'] * 100:.2f}%"
-                )
-            if data.get("type") == "download" in data:
-                # Ваш код обработки данных о прогрессе здесь
-                # Пример: обновление прогресса tqdm
-                progress_bar.update(data["download"]["progress"] * 100)
-                # Обновление описания прогресс-бара
-                progress_bar.set_description(
-                    f"Downloading: {data['download']['progress'] * 100:.2f}%"
-                )
-            if data.get("type") == "upload" in data:
-                # Ваш код обработки данных о прогрессе здесь
-                # Пример: обновление прогресса tqdm
-                progress_bar.update(data["upload"]["progress"] * 100)
-                # Обновление описания прогресс-бара
-                progress_bar.set_description(
-                    f"Uploading: {data['upload']['progress'] * 100:.2f}%"
-                )
-            if data.get("type") == "result" in data:
+            if data.get("type") == "result":
                 insert_data(data)
                 progress_bar.set_description(f"Done")
+            else:
+                for key in ["ping", "download", "upload"]:
+                    if data.get("type") == key:
+                        progress_percentage = round(data[key]["progress"] * 100, 2)
+                        print(f"\r{key.capitalize()}: {progress_percentage:5.1f}%   ", end='', flush=True)
         except json.JSONDecodeError:
-            pass  # Если строку не удается разобрать как JSON, пропускаем
+            pass
 
+
+
+
+def wait_for_completion(process, handle_output_func, progress_bar):
+    while process.poll() is None:
+        line = process.stdout.readline()
+        if not line:
+            break
+        handle_output_func([line], progress_bar)
+
+def execute_speedtest():
+    try:
+        cmd = get_speedtest_command()
+        setup_logging()
+        logging.info("Speedtest script started.")
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            if not is_daemon:
+                process = start_speedtest_process(cmd)
+                future = executor.submit(
+                    wait_for_completion,
+                    process, handle_speedtest_output, None
+                )
+                current_version = get_current_version()
+                concurrent.futures.wait([future])
+            else:
+                process = start_speedtest_process(cmd)
+                future = executor.submit(
+                    wait_for_completion,
+                    process, handle_speedtest_output, None
+                )
+                current_version = get_current_version()
+                delay = get_delay(interval_ms)
+                countdown_timer(int(delay / 1000))
+
+    except Exception as error:
+        logging.error("Error executing Speedtest or parsing output: %s", error)
 
 def signal_handler(sig, frame):
     logging.info("Received Ctrl+C. Exiting gracefully...")
-    exit()
+    sys.exit()
 
 
 # Установка обработчика сигнала Ctrl+C
