@@ -1,0 +1,45 @@
+name: Versioning and Release
+
+on:
+  push:
+    branches:
+      - main  # Замените на вашу основную ветку
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt  # Замените на ваш способ установки зависимостей
+
+      - name: Run update version script
+        run: |
+          python update_version.py  # Замените на имя вашего скрипта
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "drycov@gmail.com"
+          git config --local user.name "UniTTC"
+          git add .
+          git commit -m "Auto-increment version"
+          git push
+
+      - name: Create release
+        uses: actions/create-release@v1
+        with:
+          files: |
+            # Список файлов, которые вы хотите добавить к релизу
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit: main  # Замените на вашу основную ветку
+          tag: v${{ steps.version.outputs.new_version }}
