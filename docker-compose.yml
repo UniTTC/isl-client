@@ -1,7 +1,7 @@
 version: '3.3'
 
 services:
-  isl-client:
+  client:
     build:
       context: .
     environment:
@@ -11,9 +11,9 @@ services:
       - CLIENT_LATITUDE=49.680414
       - CLIENT_LONGITUDE=83.314745
       - CONNECTION_TYPE=FTTB
-      - CONNECTION_LOGIN=test@test
+      - CONNECTION_LOGIN=isit_rykovdi@osk
       - CONNECTION_VLAN=2919
-      - CONNECTION_IP=Nan
+      - CONNECTION_IP=000.000.000.000
       - CONNECTION_TP=70
     volumes:
-      - ./isl-client:/opt/isl_client
+      - ./docer_log:/opt/isl_client/logs
