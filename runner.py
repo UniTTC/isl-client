@@ -34,6 +34,7 @@ exe_file_path = script_directory / "bin"
 #
 repo_url = "https://github.com/UniTTC/isl-client"
 
+
 def check_and_update():
     current_version = get_current_version()
     if check_for_updates(current_version):
@@ -43,10 +44,12 @@ def check_and_update():
         logging.info("Update complete. New version: %s", new_version)
         if is_daemon:
             execute_speedtest()
-            
+
+
 # Добавьте эту функцию для запуска проверки обновлений каждый день в 00:00
 def schedule_update_check():
     schedule.every().day.at("00:00").do(check_and_update)
+
 
 def get_current_version():
     try:
@@ -125,7 +128,6 @@ config = load_configuration(config_yaml_file_path, config_json_file_path)
 
 
 # Настройка логирования
-
 
 def setup_logging():
     # Проверка существования папки "logs"
@@ -265,12 +267,10 @@ def insert_data(result):
 
 # Получение команды Speedtest
 def get_speedtest_command():
-    cmd_key = (
-        "commandStringWin"
-        if platform.system().lower() == "windows"
-        else "commandString"
-    )
-    return f'{exe_file_path}/{config["speedtest"][cmd_key]}'
+    if platform.system().lower() == "windows":
+        return f'{exe_file_path}/{config["speedtest"]["commandStringWin"]}'
+    else:
+        return f'{config["speedtest"]["commandString"]}'
 
 
 # Получение задержки
@@ -356,18 +356,15 @@ def execute_speedtest():
                 countdown_timer(int(delay / 1000))
                 schedule_update_check()
 
-
     except Exception as error:
         logging.error("Error executing Speedtest or parsing output: %s", error)
 
-
+# Установка обработчика сигнала Ctrl+C
 def signal_handler(sig, frame):
     logging.info("Received Ctrl+C. Exiting gracefully...")
     sys.exit()
 
 
-
-# Установка обработчика сигнала Ctrl+C
 signal.signal(signal.SIGINT, signal_handler)
 
 is_daemon = len(os.sys.argv) > 2 and os.sys.argv[2] == "daemon"
