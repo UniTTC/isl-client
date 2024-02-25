@@ -12,7 +12,7 @@ import sys
 import platform
 import time
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta,timezone
 from pathlib import Path
 import argparse
 import signal
@@ -29,6 +29,7 @@ log_file_name = "isl.log"
 config_yaml_file_path = script_directory / "config.yaml"
 config_json_file_path = script_directory / "config" / "default.json"
 exe_file_path = script_directory / "bin"
+
 
 def load_configuration(config_yaml_file_path, config_json_file_path):
     if config_yaml_file_path.is_file() and config_json_file_path.is_file():
@@ -107,12 +108,22 @@ def generate_graphql_endpoint():
 
 endpoint = generate_graphql_endpoint()
 
+def get_offset():
+    local_timezone = datetime.now(timezone.utc).astimezone().tzinfo
+    current_offset = datetime.now(local_timezone).utcoffset()
+    # Получение смещения в часах как целого числа
+    offset_hours = current_offset.total_seconds() // 3600
+    return int(offset_hours)
 
 # Конвертация времени из UTC в локальное
 def convert_utc_to_local(timestamp_utc):
-    timestamp_datetime = datetime.strptime(timestamp_utc, "%Y-%m-%dT%H:%M:%S%z")
-    timestamp_local = timestamp_datetime.astimezone(local_tz)
-    return timestamp_local.strftime("%Y-%m-%dT%H:%M:%S%z")
+    parsed_time = datetime.fromisoformat(timestamp_utc)
+    # Добавляем 6 часов к времени
+    offset = get_offset()
+    adjusted_time  = parsed_time + timedelta(hours=offset)
+    timestamp = adjusted_time .strftime('%Y-%m-%dT%H:%M:%SZ')
+    return timestamp
+
 
 # Вставка данных в GraphQL с логированием
 def insert_data(result):
@@ -188,8 +199,6 @@ def get_speedtest_command():
         return f'{config["speedtest"]["commandString"]}'
 
 
-
-            
 def countdown_timer(interval):
     # Установка обработчика сигнала Ctrl+C
     signal.signal(signal.SIGINT, signal_handler)
@@ -201,7 +210,6 @@ def countdown_timer(interval):
         scheduler.enterabs(next_call, 1, execute_speedtest, ())
         next_call += interval
         time.sleep(1)
-
 
 
 def start_speedtest_process(cmd):
