@@ -1,7 +1,7 @@
 graphql:
   protocol: http       # Протокол (не изменять)
-  url: 91.185.5.210    # URL (не изменять)
-  port: 3000           # Порт (не изменять)
+  url: isl.tgnsa.ru    # URL (не изменять)
+  # port: 443           # Порт (не изменять)
   endpoint: /graphql   # Конечная точка (не изменять)
 
 speedtest:
