@@ -155,7 +155,7 @@ client:
 
 ```bash
 #crontab -e 
-@reboot /usr/bin/python3 /opt/isl_client/runner.py --daemon >> /opt/isl_client/logs/worker.log 2>&1
+@reboot /usr/bin/python3 /opt/isl_client/main.py --daemon >> /opt/isl_client/logs/worker.log 2>&1
 ```
 или
 

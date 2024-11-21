@@ -4,15 +4,38 @@
 # REQUIRE: networking
 # KEYWORD: shutdown
 
+# Подключение библиотеки rc.subr для работы с RC-функциями
 . /etc/rc.subr
 
+# Название службы
 name="isl"
+
+# Переменная управления (включение/отключение через /etc/rc.conf)
 rcvar="isl_enable"
-isl_enable="YES"
 
+# Значение по умолчанию (можно переопределить в /etc/rc.conf)
+: ${isl_enable:="NO"}
+
+# Пути к файлам и командам
 pidfile="/var/run/${name}.pid"
-command="/usr/sbin/daemon"
-command_args="-u nobody -r -o /var/log/${name}.log -p ${pidfile} /usr/bin/python3 /opt/isl_client/runner.py --daemon"
+logfile="/var/log/${name}.log"
+script="/opt/isl_client/runner.py"
 
+# Команда запуска демона
+command="/usr/sbin/daemon"
+command_args="-u nobody -r -o ${logfile} -p ${pidfile} /usr/bin/python3 ${script} --daemon"
+
+# Проверка на наличие файла скрипта перед запуском
+check_script() {
+    if [ ! -f "${script}" ]; then
+        echo "Error: Script ${script} not found!"
+        return 1
+    fi
+    return 0
+}
+
+# Загрузка конфигурации
 load_rc_config $name
+
+# Определение действия службы
 run_rc_command "$1"
